@@ -1,3 +1,5 @@
+// last update: 26 Jul 2016 by K
+
 /*
 A product for Voatz company of NiMSiM LLC
 Implemented from ASF Marbles; see <https://github.com/IBM-Blockchain/marbles-chaincode>
