@@ -36,18 +36,18 @@ type Candidate struct{
 type User struct{
 	Voter
 	Candidate
-	UserID int 'json:"userid"'			//tags each user
+	UserID int `json:"userid"`			//tags each user
 }
 
 type Vote struct{
 	User
-	Tag string 'json:"tag"'			//tags the vote
-	Election string 'json:"election"'		//type of election; e.g., presidential elections
-	Choice string 'json:"choice"'			//voter's choice (the vote); e.g., Obama
+	Tag string `json:"tag"`			//tags the vote
+	Election string `json:"election"`		//type of election; e.g., presidential elections
+	Choice string `json:"choice"`			//voter's choice (the vote); e.g., Obama
 }
 
 type Description struct {
-	Choice string 'json:"choice"'			// argument to be exchanged; send voter's choice to candidate
+	Choice string `json:"choice"`			// argument to be exchanged; send voter's choice to candidate
 }
 
 type AnOpenIntent struct{
@@ -132,7 +132,7 @@ func (t *VoatzCC) Invoke(stub *shim.ChaincodeStub, function string, args []strin
 
   	//Handling functions:
 	if function == "init" {				//initialize CC state, or reset
-		return t.Init(stub, "init", args)
+		return t.init(stub, args)
 	} else if function == "delete" {			//delete argument from its state
 		line, err := t.Delete(stub, args)
 		cleanIntents(stub)
@@ -157,7 +157,7 @@ func (t *VoatzCC) Invoke(stub *shim.ChaincodeStub, function string, args []strin
 
 	fmt.Println("Can't find function " + function + " while invoking")
 
-	return nil, error.New("Error: Invoked unknown function")
+	return nil, errors.New("Error: Invoked unknown function")
 }
 
 // *********** *********** *********** *********** *********** *********** *********** *********** *********** *********** ***********
@@ -202,10 +202,10 @@ func (t *VoatzCC) read(stub *shim.ChaincodeStub, args []string) ([]byte, error) 
 // *********** *********** *********** *********** *********** *********** *********** *********** *********** *********** ***********
 func (t *VoatzCC) Delete(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	if len(args) != 1{
-		return nil, error.New("Error: # of arguments. Expecting: 1")
+		return nil, errors.New("Error: # of arguments. Expecting: 1")
 	}
 
-	name := args[0]
+	tag := args[0]
 	err := stub.DelState(tag)		//remove the tag from CC state
 
 	if err != nil {
@@ -228,7 +228,7 @@ func (t *VoatzCC) Delete(stub *shim.ChaincodeStub, args []string) ([]byte, error
 
 		if val == tag {			//find the vote to remove
 			fmt.Println("Found vote")
-			voteIndex = append(voteIndex[:i], voteIndex[i+1:]…)		//remove the vote
+			voteIndex = append(voteIndex[:i], voteIndex[i+1:]...)		//remove the vote
 
 			for x := range voteIndex {		//debug
 				fmt.Println(string(x) + " - " + voteIndex[x])
@@ -238,7 +238,7 @@ func (t *VoatzCC) Delete(stub *shim.ChaincodeStub, args []string) ([]byte, error
 		}
 	}
 	jsonB, _ := json.Marshal(voteIndex)
-	err = stub.PutState(userIndexStr, jsonB)
+	err = stub.PutState(voteIndexStr, jsonB)
 	return nil, nil
 }
 
@@ -311,16 +311,16 @@ func (t *VoatzCC) init_vote(stub *shim.ChaincodeStub, args []string) ([]byte, er
 	choice := strings.ToLower(args[3])
 
 	//check if vote exists already
-	votesB, err := stub.GetState(tag)
+	tagB, err := stub.GetState(tag)
 	
 	if err != nil {
-		return nil, errors.New(Error: Can't get vote tag)
+		return nil, errors.New("Error: Can't get vote tag")
 	}
 
 	line := Vote {}
-	json.Unmarshal(votesB, &line)
+	json.Unmarshal(tagB, &line)
 
-	if res.Tag == tag {
+	if line.Tag == tag {
 		fmt.Println("Vote already active: " + tag)
 		fmt.Println(line);
 	
@@ -328,7 +328,7 @@ func (t *VoatzCC) init_vote(stub *shim.ChaincodeStub, args []string) ([]byte, er
 	}
 
 	//Manually building json string for a vote:
-	str := '{"userID": "' + strconv.Itoa(userID) + '", "tag": "' + tag + '", "election": "' + election + '", "choice": "' + choice + '"}'
+	str := `{"userID": "` + strconv.Itoa(userID) + `", "tag": "` + tag + `", "election": "` + election + `", "choice": "` + choice + `"}`
 	err = stub.PutState(args[1], []byte(str))		//store vote with tag as key
 	
 	if err != nil {
@@ -351,7 +351,7 @@ func (t *VoatzCC) init_vote(stub *shim.ChaincodeStub, args []string) ([]byte, er
 	jsonB, _ := json.Marshal(voteIndex)
 	err = stub.PutState(voteIndexStr, jsonB)		//store vote tag
 
-	fmt.Println(Completing vote initialization..)
+	fmt.Println("Completing vote initialization..")
 
 	return nil, nil
 }
@@ -366,7 +366,7 @@ func (t *VoatzCC) set_user(stub *shim.ChaincodeStub, args []string) ([]byte, err
 	// vote tag, userID
 	// "FromJaniceBlack", "4850"
 	if len(args) < 2 {
-		return nil, error.New("Error: # of arguments. Expecting: 2")
+		return nil, errors.New("Error: # of arguments. Expecting: 2")
 	}
 
 	fmt.Println("Initiating new user..")
@@ -379,10 +379,14 @@ func (t *VoatzCC) set_user(stub *shim.ChaincodeStub, args []string) ([]byte, err
 	
 	line := Vote{}
 	json.Unmarshal(votesB, &line)		//de-string; Json.parse()
-	line.User = args[1]			//change user
+	line.UserID, err = strconv.Atoi(args[1])			//change user
+
+	if err != nil {
+	   return nil, errors.New("Error. Expecting: String of numbers")
+	   }
 
 	jsonB, _ := json.Marshal(line)
-	err = stub.PutState(args[0]. jsonB)	//rewrite user with tag as key
+	err = stub.PutState(args[0], jsonB)	//rewrite user with tag as key
 
 	if err != nil {
 		return nil, err
@@ -422,7 +426,7 @@ func (t *VoatzCC) vote_intent(stub *shim.ChaincodeStub, args []string) ([]byte, 
 	}
 
 	open := AnOpenIntent{}
-	open.Candidate = args[0]
+	open.UserID = userID
 	open.Timestamp = makeTimestamp()
 	open.Want.Choice = args[1]
 	
@@ -431,13 +435,13 @@ func (t *VoatzCC) vote_intent(stub *shim.ChaincodeStub, args []string) ([]byte, 
 	err = stub.PutState("_debug1", jsonB)
 
 	for i := 1 ;  i < len(args) ;  i++ {
-		will_choice, err = strings.ToLower(args[i])
+		will_choice = strings.ToLower(args[i])
 
-		if err != nil {
-			warning := "Choice; " + args[i] + " is not an alphabetical string"
-			fmt.Println(warning)
-			return nil, errors.New("Error: " + warning)
-		}
+		// if err != nil {
+		// 	warning := "Choice; " + args[i] + " is not an alphabetical string"
+		// 	fmt.Println(warning)
+		// 	return nil, errors.New("Error: " + warning)
+		// }
 	
 		intent_sent = Description{}
 		intent_sent.Choice = will_choice
@@ -446,7 +450,7 @@ func (t *VoatzCC) vote_intent(stub *shim.ChaincodeStub, args []string) ([]byte, 
 		err = stub.PutState("_debug2", jsonB)
 
 		open.Willing = append(open.Willing, intent_sent)
-		fmt.Println(Appending will to open..)
+		fmt.Println("Appending will to open..")
 		i++;
 	}
 
@@ -479,6 +483,7 @@ func (t *VoatzCC) vote_intent(stub *shim.ChaincodeStub, args []string) ([]byte, 
 // *********** *********** *********** *********** *********** *********** *********** *********** *********** *********** ***********
 func (t *VoatzCC) transmit(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	var err error
+	var userIDIntentStr string
 
 	// 0 1 2 3 4
 	//[data.id(timestamp how ??), data.closer.voter(userID), data.closer.tag, data.opener.candidate(userID), data.opener.choice]
@@ -494,17 +499,23 @@ func (t *VoatzCC) transmit(stub *shim.ChaincodeStub, args []string) ([]byte, err
 		return nil, errors.New("Error: 1st argument. Expecting: Numeric string")
 	}
 
-	voterID, err := strconv.Atoi(args[1])
+	// voterID, err := strconv.Atoi(args[1])
 
-	if err != nil {
-		return nil, errors.New("Error: 2nd argument. Expecting: Numeric string")
-	}
+	// if err != nil {
+	//	return nil, errors.New("Error: 2nd argument. Expecting: Numeric string")
+	// }
 
-	candidateID, err := strconv.Atoi(args[3])
+	// candidateID, err := strconv.Atoi(args[3])
 
-	if err != nil {
-		return nil, errors.New("Error: 4th argument. Expecting: Numeric string")
-	}
+	// if err != nil {
+	//	return nil, errors.New("Error: 4th argument. Expecting: Numeric string")
+	// }
+
+	if len(args[4]) <= 0 {
+	   return nil, errors.New("Error: 5th argument. Expecting: Choice, as a string of letters")
+	   }
+
+	choice := strings.ToLower(args[3])
 
 	// Obtaining open intent struct:
 	intentsB, err := stub.GetState(openIntentsStr)
@@ -528,23 +539,25 @@ func (t *VoatzCC) transmit(stub *shim.ChaincodeStub, args []string) ([]byte, err
 			}
 
 			closersVote := Vote{}
-			json.Unarshal(votesB, &closersVote)
+			json.Unmarshal(votesB, &closersVote)
+
+			userIDIntentStr	= strconv.Itoa(intents.OpenIntents[i].UserID) // UserID belongs to voter
 
 			// Checking for vote requirements
-			if closersVote.Choice != intents.OpentIntents[i].Want.Choice {
+			if closersVote.Choice != intents.OpenIntents[i].Want.Choice {
 				line := "Vote not as intended"
 				fmt.Println(line)
 				return nil, errors.New("Error: " + line)
 			}
 
-			vote, e := findIntendedVote(stub, intents.OpenIntent[i].User, choice)
+			vote, e := findIntendedVote(stub, userIDIntentStr, choice)
 
 			if (e == nil) {
 				fmt.Println("Proceeding..")
-				t.set_user(stub, []string{args[2], intent.OpenIntents[i].User})		// Voter instead of User ??
+				t.set_user(stub, []string{args[2], userIDIntentStr})		// Voter instead of User ??
 				t.set_user(stub, []string{vote.Tag, args[1]})
-				intents.OpenIntents = append(intents.OpenIntents[:i], intents.OpenIntents[i+1]…)	// remove vote
-				jsonB, + := json.Marshal(intents)
+				intents.OpenIntents = append(intents.OpenIntents[:i], intents.OpenIntents[i+1:]...)	// remove vote
+				jsonB, _ := json.Marshal(intents)
 				err = stub.PutState(openIntentsStr, jsonB)
 
 				if err != nil {
@@ -562,7 +575,9 @@ func (t *VoatzCC) transmit(stub *shim.ChaincodeStub, args []string) ([]byte, err
 // Find the Intended Vote :  Search for vote this candidate owns
 // *********** *********** *********** *********** *********** *********** *********** *********** *********** *********** ***********
 func findIntendedVote(stub *shim.ChaincodeStub, user string, choice string)(v Vote, err error){
-	var fail Vote;
+	var fail Vote
+	var userIDStr string
+
 	fmt.Println("Initiating search for intended vote..")
 	fmt.Println("Searching for " + user + ", " + choice)
 
@@ -585,8 +600,10 @@ func findIntendedVote(stub *shim.ChaincodeStub, user string, choice string)(v Vo
 
 		line := Vote{}
 		json.Unmarshal(votesB, &line)
+		   
+		userIDStr = strconv.Itoa(line.UserID)
 
-		if strings.ToLower(line.User) == strings.ToLower(user) && strings.ToLower(line.Choice) == strings.ToLower(choice)
+		if strings.ToLower(userIDStr) == strings.ToLower(user) && strings.ToLower(line.Choice) == strings.ToLower(choice) {
 			fmt.Println("Found a vote:" + line.Tag)
 			fmt.Println("Ending search for intended vote..")
 
@@ -636,9 +653,9 @@ func (t *VoatzCC) remove_intent(stub *shim.ChaincodeStub, args []string) ([]byte
 	json.Unmarshal(intentsB, &intents)
 
 	for i := range intents.OpenIntents {
-		if intents.OpenIntents[i].Timestamp == timestmap {
+		if intents.OpenIntents[i].Timestamp == timestamp {
 			fmt.Println("Located intent")
-			intents.OpenIntents = append(intents.OpenIntents[:i], intents.OpenIntents[i+1:]…)
+			intents.OpenIntents = append(intents.OpenIntents[:i], intents.OpenIntents[i+1:]...)
 			jsonB, _ := json.Marshal(intents)
 			err = stub.PutState(openIntentsStr, jsonB)
 			
@@ -658,12 +675,14 @@ func (t *VoatzCC) remove_intent(stub *shim.ChaincodeStub, args []string) ([]byte
 // *********** *********** *********** *********** *********** *********** *********** *********** *********** *********** ***********
 // Clean Intents ;  remove disapproved or closed intents
 // *********** *********** *********** *********** *********** *********** *********** *********** *********** *********** ***********
-func cleanTrades(stub *shim.ChaincodeStub)(err error){
+func cleanIntents(stub *shim.ChaincodeStub)(err error){
 	var valid = false
+	var userIDStr string
+
 	fmt.Println("Cleaning intents..")
 
 	// Obtaining open intent struct:
-	intentsB, err := stub.GetState(openIntentStr)
+	intentsB, err := stub.GetState(openIntentsStr)
 
 	if err != nil {
 		return errors.New("Error: Can't get open intents")
@@ -678,14 +697,16 @@ func cleanTrades(stub *shim.ChaincodeStub)(err error){
 		fmt.Println(strconv.Itoa(i) + ". Searching trade: " + strconv.FormatInt(intents.OpenIntents[i].Timestamp, 10))
 		fmt.Println("Options: " + strconv.Itoa(len(intents.OpenIntents[i].Willing)))
 
+		userIDStr = strconv.Itoa(intents.OpenIntents[i].UserID)
+
 		for x := 0 ;  x < len(intents.OpenIntents[i].Willing) ; {
 			fmt.Println("Next Option: " + strconv.Itoa(i) + " : " + strconv.Itoa(x))
-			_, e := findIntendedVote(stub, intents.OpenIntents[i].User, intents.OpenIntents[i].Willing[x].Choice)
+			_, err := findIntendedVote(stub, userIDStr, intents.OpenIntents[i].Willing[x].Choice)
 
-			if (e != nil) {
+			if (err != nil) {
 				fmt.Println("Error. Removing option..")
 				valid = true
-				intents.OpenIntents[i].Willing = append(intents.OpenIntents[i].Willing[:x], intents.OpenIntents[i].Willing[x+1:]…)
+				intents.OpenIntents[i].Willing = append(intents.OpenIntents[i].Willing[:x], intents.OpenIntents[i].Willing[x+1:]...)
 				x--
 			} else {
 				fmt.Println("Option is valid")
@@ -694,7 +715,7 @@ func cleanTrades(stub *shim.ChaincodeStub)(err error){
 			x++
 			fmt.Println()
 
-			if x >= len(intents.OPenIntents[i].Willing) {
+			if x >= len(intents.OpenIntents[i].Willing) {
 				break
 			}
 		}
@@ -702,7 +723,7 @@ func cleanTrades(stub *shim.ChaincodeStub)(err error){
 		if len(intents.OpenIntents[i].Willing) == 0 {
 			fmt.Println("Ran out of options. Removing intent..")
 			valid = true
-			intents.OpenIntents = append(intents.OpenIntents[:i], intents.OpenIntents[i+1:]…)
+			intents.OpenIntents = append(intents.OpenIntents[:i], intents.OpenIntents[i+1:]...)
 			i--
 		}
 
@@ -721,18 +742,12 @@ func cleanTrades(stub *shim.ChaincodeStub)(err error){
 
 		if err != nil {
 			return err
-		} else {
-			fmt.Println("All open intents are valid")
-		}
-
-		fmt.Println("Ending intent clean-up..")
-		
-		return nil
+			}
+	} else {
+		fmt.Println("All open intents are valid")
 	}
 
-	
-
-
-
-
-
+	fmt.Println("Ending intent clean-up..")
+		
+	return nil
+}

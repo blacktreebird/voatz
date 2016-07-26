@@ -1,6 +1,6 @@
 /*
 A product for Voatz company of NiMSiM LLC
-Implemented from ASF Marbles
+Implemented from ASF Marbles; see <https://github.com/IBM-Blockchain/marbles-chaincode>
 Sends votes from voters to candidates
 Written by K
 */
@@ -35,14 +35,14 @@ type Candidate struct{
 type User struct{
 	Voter
 	Candidate
-	UserID int 'json:"userid"'			//tags each user
+	UserID int `json:"userid"`			//tags each user
 }
 
 type Vote struct{
 	User
-	Tag string 'json:"tag"'			//tags the vote
-	Election string 'json:"election"'		//type of election; e.g., presidential elections
-	Choice string 'json:"choice"'			//voter's choice (the vote); e.g., Obama
+	Tag string `json:"tag"`			//tags the vote
+	Election string `json:"election"`		//type of election; e.g., presidential elections
+	Choice string `json:"choice"`			//voter's choice (the vote); e.g., Obama
 }
 
 // *********** *********** *********** *********** *********** *********** *********** *********** *********** *********** ***********
@@ -113,7 +113,7 @@ func (t *VoatzCC) Run(stub *shim.ChaincodeStub, function string, args []string) 
 
 	fmt.Println("Can't find function " + function + " during run")
 
-	return nil, error.New("Error: Invoked unknown function")
+	return nil, errors.New("Error: Invoked unknown function")
 }
 
 // *********** *********** *********** *********** *********** *********** *********** *********** *********** *********** ***********
@@ -158,10 +158,10 @@ func (t *VoatzCC) read(stub *shim.ChaincodeStub, args []string) ([]byte, error) 
 // *********** *********** *********** *********** *********** *********** *********** *********** *********** *********** ***********
 func (t *VoatzCC) Delete(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	if len(args) != 1{
-		return nil, error.New("Error: # of arguments. Expecting: 1")
+		return nil, errors.New("Error: # of arguments. Expecting: 1")
 	}
 
-	name := args[0]
+	tag := args[0]
 	err := stub.DelState(tag)		//remove the tag from CC state
 
 	if err != nil {
@@ -184,7 +184,7 @@ func (t *VoatzCC) Delete(stub *shim.ChaincodeStub, args []string) ([]byte, error
 
 		if val == tag {			//find the vote to remove
 			fmt.Println("Found vote")
-			voteIndex = append(voteIndex[:i], voteIndex[i+1:]…)		//remove the vote
+			voteIndex = append(voteIndex[:i], voteIndex[i+1:]...)		//remove the vote
 
 			for x := range voteIndex {		//debug
 				fmt.Println(string(x) + " - " + voteIndex[x])
@@ -194,7 +194,7 @@ func (t *VoatzCC) Delete(stub *shim.ChaincodeStub, args []string) ([]byte, error
 		}
 	}
 	jsonB, _ := json.Marshal(voteIndex)
-	err = stub.PutState(userIndexStr, jsonB)
+	err = stub.PutState(voteIndexStr, jsonB)
 	return nil, nil
 }
 
@@ -267,7 +267,7 @@ func (t *VoatzCC) init_vote(stub *shim.ChaincodeStub, args []string) ([]byte, er
 	choice := strings.ToLower(args[3])
 
 	//Manually building json string for a vote:
-	str := '{"userID": "' + strconv.Itoa(userID) + '", "tag": "' + tag + '", "election": "' + election + '", "choice": "' + choice + '"}'
+	str := `{"userID": "` + strconv.Itoa(userID) + `", "tag": "` + tag + `", "election": "` + election + `", "choice": "` + choice + `"}`
 	err = stub.PutState(args[1], []byte(str))		//store vote with tag as key
 	
 	if err != nil {
@@ -278,7 +278,7 @@ func (t *VoatzCC) init_vote(stub *shim.ChaincodeStub, args []string) ([]byte, er
 	votesB, err := stub.GetState(voteIndexStr)
 
 	if err != nil {
-		return nil, errors.New(Error: Can't get vote index)
+		return nil, errors.New("Error: Can't get vote index")
 	}
 
 	var voteIndex []string
@@ -290,7 +290,7 @@ func (t *VoatzCC) init_vote(stub *shim.ChaincodeStub, args []string) ([]byte, er
 	jsonB, _ := json.Marshal(voteIndex)
 	err = stub.PutState(voteIndexStr, jsonB)		//store vote tag
 
-	fmt.Println(Completing vote initialization..)
+	fmt.Println("Completing vote initialization..")
 
 	return nil, nil
 }
@@ -305,7 +305,7 @@ func (t *VoatzCC) set_user(stub *shim.ChaincodeStub, args []string) ([]byte, err
 	// vote tag, userID
 	// "FromJaniceBlack", "4850"
 	if len(args) < 2 {
-		return nil, error.New(Error: # of arguments. Expecting: 2)
+		return nil, errors.New("Error: # of arguments. Expecting: 2")
 	}
 
 	fmt.Println("Initiating new user..")
@@ -318,10 +318,14 @@ func (t *VoatzCC) set_user(stub *shim.ChaincodeStub, args []string) ([]byte, err
 	
 	line := Vote{}
 	json.Unmarshal(votesB, &line)		//de-string; Json.parse()
-	line.User = args[1]			//change user
+	line.UserID, err = strconv.Atoi(args[1])			//change user
+
+	if err != nil {
+		return nil, errors.New("Error. Expecting: String of numbers")
+	}
 
 	jsonB, _ := json.Marshal(line)
-	err = stub.PutState(args[0]. jsonB)	//rewrite user with tag as key
+	err = stub.PutState(args[0], jsonB)	//rewrite user with tag as key
 
 	if err != nil {
 		return nil, err
@@ -332,11 +336,5 @@ func (t *VoatzCC) set_user(stub *shim.ChaincodeStub, args []string) ([]byte, err
 	return nil, nil
 }
 
-
-
-
-
-
-
-
-
+// *********** *********** *********** *********** *********** *********** *********** *********** *********** *********** ***********
+// End of line --K
